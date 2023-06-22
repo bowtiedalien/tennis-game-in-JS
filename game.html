@@ -1,0 +1,170 @@
+<html>
+<canvas id="game-canvas" width="800" height="600"></canvas>
+<script>
+  var canvas; //has dimensions of canvas area
+  var canvasContext; //has underlying graphical info about canvas area
+  var ballX = 25; //to move the ball at every call
+  var ballSpeedX = 10;
+  var ballY = 100;
+  var ballSpeedY = 4;
+
+  var player1Score = 0;
+  var player2Score = 0;
+
+  const WINNING_SCORE = 5; //3 is easier for testing
+
+  window.onload = function() {
+    console.log("Hello World");
+    canvas = document.getElementById('game-canvas');
+    canvasContext = canvas.getContext('2d');
+
+    var framesPerSecond = 30;
+    setInterval(function() {
+      drawEverything();
+      moveEverything();
+    }, 1000 / framesPerSecond); //call the functions 30 times per second
+
+    canvas.addEventListener('mousemove', function(evt){
+      var mousePos = calculateMousePos(evt); //this is a list of 2 elements
+      paddle1Y = mousePos.y - (PADDLE_HEIGHT/2);
+      //subtracting half paddle height to make sure that mouse movement moves the paddle with it from the center not from the top
+    })
+  }
+
+  var paddle1Y = 250;
+  var paddle2Y = 370;
+  const PADDLE_HEIGHT = 100;
+  const PADDLE_WIDTH = 10;
+
+  function calculateMousePos(evt){
+    var rect = canvas.getBoundingClientRect();
+    //defines the area that the canvas takes in the window
+    var root = document.documentElement;
+    //defines the whole web page (i.e. document element)
+    var mouseX = evt.clientX - rect.left - root.scrollLeft;
+    //note: clientX and clientY return the value of the mouse position at x and y coordinates
+    var mouseY = evt.clientY - rect.top - root.scrollTop;
+    //explan: by subtracting rect.top (the space between the top of the canvas and the top of the document), we calculate the mouse position starting from the top of the canvas not starting from the top of the window as it would per default.
+    //also, by subtracting rect.scrollTop (the space between the start of the canvas and the start of the canvas after scrolling - i.e. the distance scrolled) we will start calculating the position of the mouse starting from the canvas corner that appears after scrolling.
+
+    return{
+      x:mouseX,
+      y:mouseY
+    };
+  }
+
+  function computerMovement(){
+    //AI controlling right paddle
+    var paddle2YCenter = paddle2Y + (PADDLE_HEIGHT/2);
+    if(paddle2YCenter > ballY+35){
+      paddle2Y-=6;
+    }
+    //explan: chase the ball only if the paddle is above/below it with 35 pixels added to the ball's y position. Otherwise, the paddle is already at a good y position close to the ball. Pause and don't chase.
+    else if(paddle2YCenter < ballY-35){
+      paddle2Y+=6;
+    }
+  }
+  function moveEverything() {
+    computerMovement();
+    ballX = ballX + ballSpeedX;
+    ballY = ballY + ballSpeedY;
+
+    //ball hits right side:
+    if (ballX > canvas.width-PADDLE_WIDTH) {
+      if(ballY > paddle2Y && ballY < paddle2Y+PADDLE_HEIGHT){
+        ballSpeedX = -ballSpeedX;
+
+        var deltaY = ballY - (paddle2Y+PADDLE_HEIGHT/2);
+        ballSpeedY = deltaY * 0.35; //taking the third of the value because deltaY may be too big for a ball speed
+    }else{
+      player1Score++;
+      ballReset();
+    }
+    }
+    //ball hits left side:
+    if (ballX < PADDLE_WIDTH) {
+      if(ballY > paddle1Y && ballY < paddle1Y+PADDLE_HEIGHT){
+        ballSpeedX = -ballSpeedX;
+
+        var deltaY = ballY - (paddle1Y+PADDLE_HEIGHT/2);
+        ballSpeedY = deltaY * 0.35; //taking the third of the value because deltaY may be too big for a ball speed
+    }else{
+      player2Score++; //must be before ballReset()
+      ballReset();
+    }
+    }
+
+    if (ballY > canvas.height) {
+      ballSpeedY = -ballSpeedY;
+    }
+    if (ballY < 0) {
+      ballSpeedY = -ballSpeedY;
+    }
+  }
+
+  function drawEverything() {
+
+    canvasContext.fillStyle = 'black';
+    canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+
+    //console.log(ballX);
+    //set the ball
+    drawCircle(ballX, ballY, 10, 'red');
+
+    //set the first paddle
+    canvasContext.fillStyle = 'white';
+    canvasContext.fillRect(0, paddle1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+    //explan: fillRect(x coordinate, y coordinate, width of the given canvas, height of the given canvas)
+
+    //set the second paddle
+    canvasContext.fillStyle = 'white';
+    canvasContext.fillRect(canvas.width-PADDLE_WIDTH, paddle2Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+    /*important notes about the functions setting up the canvas
+    - apparently there is an execution order to the canvas functions. fillStyle has to be used before fillRect. It sets up the color that will be used
+    for the rectangle built by fillRect.
+    - if you want to center a rectangle in the middle of the canvas, remember that the width and height begin from the left top and bottom corners. Subtract half the width and the height from the width and height of the rectangle to make it properly centered.
+    - code order effects overlap order of the shapes (which is behind, which is above)
+    */
+
+    //score texts
+    canvasContext.fillText("player1: " + player1Score, 100,100);
+    canvasContext.fillText("player2: " + player2Score, canvas.width-200,100);
+
+    //vertical dividing line
+    for(var i=0;i<canvas.height; i+=20){
+      canvasContext.fillText("|", canvas.width/2, i);
+      // canvasContext.fillText("s", canvas.width/2, i+100);
+    }
+  }
+
+  function drawCircle(centerX, centerY, radius, drawColor) {
+
+    canvasContext.beginPath();
+    canvasContext.fillStyle = 'red';
+    canvasContext.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+    canvasContext.fill();
+    canvasContext.closePath(); //isn't v imp?
+
+  }
+
+  //when ball hits outside the paddle
+  function ballReset(){
+    if(player1Score >= WINNING_SCORE ||
+    player2Score >= WINNING_SCORE){
+      alert(player1Score>=WINNING_SCORE?"You won!" + "\n"+player1Score+" to "+player2Score:"Computer has won!" + "\n"+player2Score+" to "+player1Score);
+      player1Score = 0;
+      player2Score = 0;
+    }
+    ballSpeedX = -ballSpeedX;
+    ballX = canvas.width/2;
+    ballY = canvas.height/2;
+  }
+</script>
+
+
+<!--References:
+- https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
+-->
+
+</html>
